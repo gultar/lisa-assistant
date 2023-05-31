@@ -1,43 +1,33 @@
-from langchain.agents import Tool, AgentExecutor, LLMSingleActionAgent, AgentOutputParser
-from langchain.prompts import BaseChatPromptTemplate
-from langchain import SerpAPIWrapper, LLMChain
-from langchain.chat_models import ChatOpenAI
-from typing import List, Union
-from langchain.schema import AgentAction, AgentFinish, HumanMessage
-from langchain.tools import BaseTool, StructuredTool, Tool
-import re
-from getpass import getpass
-from duckduckgo_search import DDGS
-from langchain.callbacks.manager import AsyncCallbackManagerForToolRun, CallbackManagerForToolRun
-from typing import Optional, Type
-from dotenv import dotenv_values, load_dotenv
+from langchain.agents import Tool
+from langchain.agents import initialize_agent, AgentType
+from langchain.memory import ConversationSummaryBufferMemory
 from langchain.chat_models import ChatOpenAI as OpenAI
+from langchain.prompts import BaseChatPromptTemplate
+from langchain import LLMChain
+from langchain.schema import HumanMessage
+from langchain.tools import Tool
+from dotenv import dotenv_values, load_dotenv
+from typing import List
 from listen import listen
 from speak import speak
-from time import sleep
+from make_tools import make_tools
+from tools.get_weather import get_weather
+import argparse
 
 load_dotenv()
 env = dotenv_values(".env")
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--text", help="Interact with Lisa by typing",
+                    action='store_true')
+parser.add_argument("-s", "--silent", help="Lisa doesn't speak; she writes instead.",
+                    action='store_true')
+args = parser.parse_args()
+
+is_text = args.text
+is_silent = args.silent
+
 print("Hi! I'm Lisa, your personal assistant")
-
-def search_ddg(query: str)-> str: 
-    """Searches DuckDuckGo and returns the five topmost results"""
-    ddgs = DDGS()
-
-    keywords = query
-    ddgs_text_gen = ddgs.text(keywords, region='wt-wt', safesearch='Off', timelimit='y')
-    results = []
-    for r in ddgs_text_gen:
-        results.append(r)
-
-    five_most = results[0:5]
-    response = ""
-    for result in five_most:
-        # response += f"Title: {result['title']}\nURL:{result['href']}\nDescription:{result['body']}\n\n"
-        response += f"{result['body']}\n{result['href']}\n\n"
-
-    return response
 
 class CustomPromptTemplate(BaseChatPromptTemplate):
         # The template to use
@@ -61,40 +51,11 @@ class CustomPromptTemplate(BaseChatPromptTemplate):
             kwargs["tool_names"] = ", ".join([tool.name for tool in self.tools])
             formatted = self.template.format(**kwargs)
             return [HumanMessage(content=formatted)]
-        
-class CustomOutputParser(AgentOutputParser):
-        
-        def parse(self, llm_output: str) -> Union[AgentAction, AgentFinish]:
-            # Check if agent should finish
-            if "Final Answer:" in llm_output:
-                return AgentFinish(
-                    # Return values is generally always a dictionary with a single `output` key
-                    # It is not recommended to try anything else at the moment :)
-                    return_values={"output": llm_output.split("Final Answer:")[-1].strip()},
-                    log=llm_output,
-                )
-            # Parse out the action and action input
-            regex = r"Action\s*\d*\s*:(.*?)\nAction\s*\d*\s*Input\s*\d*\s*:[\s]*(.*)"
-            match = re.search(regex, llm_output, re.DOTALL)
-            if not match:
-                final = "Final Answer:"+llm_output
-                return self.parse(final)
-            action = match.group(1).strip()
-            action_input = match.group(2)
-            # Return the action and action input
-            return AgentAction(tool=action, tool_input=action_input.strip(" ").strip('"'), log=llm_output)
 
-def ask_lisa(query):
 
-    tools = [
-        Tool(
-            name = "Search",
-            func=search_ddg,
-            description="useful for when you need to answer questions about current events"
-        )
-    ]
-    
-    template = """Complete the objective as best you can. You have access to the following tools:
+tools = make_tools()
+  
+template = """Complete the objective as best you can. You have access to the following tools:
 
     {tools}
     If you get a better understanding of a topic, please don't mention it.
@@ -114,47 +75,54 @@ def ask_lisa(query):
     Begin!
 
     Question: {input}
-    {agent_scratchpad}"""
+    {agent_scratchpad}
+"""
 
-    
-        
-    prompt = CustomPromptTemplate(
-        template=template,
-        tools=tools,
-        # This omits the `agent_scratchpad`, `tools`, and `tool_names` variables because those are generated dynamically
-        # This includes the `intermediate_steps` variable because that is needed
-        input_variables=["input", "intermediate_steps"]
-    )
-        
-    output_parser = CustomOutputParser()
-    llm = OpenAI(temperature=0, openai_api_key=env['OPENAI_API_KEY'])
-    llm_chain = LLMChain(llm=llm, prompt=prompt)
-    tool_names = [tool.name for tool in tools]
-    agent = LLMSingleActionAgent(
-        llm_chain=llm_chain, 
-        output_parser=output_parser,
-        stop=["\nObservation:"], 
-        allowed_tools=tool_names
-    )
-    agent_executor = AgentExecutor.from_agent_and_tools(agent=agent, tools=tools, verbose=True)
-    answer = agent_executor.run(query)
+prompt = CustomPromptTemplate(
+    template=template,
+    tools=tools,
+    # This omits the `agent_scratchpad`, `tools`, and `tool_names` variables because those are generated dynamically
+    # This includes the `intermediate_steps` variable because that is needed
+    input_variables=["input", "intermediate_steps"]
+)   
 
+llm = OpenAI(temperature=0, openai_api_key=env['OPENAI_API_KEY'])
+llm_chain = LLMChain(llm=llm, prompt=prompt)
+
+tool_names = [tool.name for tool in tools]
+
+memory = ConversationSummaryBufferMemory(llm=llm, memory_key="chat_history", return_messages=True)
+memory.load_memory_variables({})
+agent2 = initialize_agent(tools, llm, agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION, verbose=True, memory=memory)
+
+def ask_lisa(query):
+    answer = agent2.run(query)
     return answer
 
+def give_answer(answer):
+     if is_silent:
+          print(answer)
+     else:
+          speak(answer)
+
+def receive_query():
+    if is_text:
+        query = input("Lisa: What can I do for you?\n")
+    else:
+        query = listen()
+
+    return query
+
 while True:
-    query = listen()
-    confirm = input("You said : "+query+", correct? (Y/n)")
+    query = receive_query()
+    confirm = input("User: You said '"+query+"'\nIs it correct? (Y/n)")
 
     if confirm == 'n':
         continue
-    else:
 
-        if confirm == 'y' or confirm == '':
-            output = ask_lisa(query)
-            speak(output)
-            break
-        
-        sleep(3)
+    elif confirm == 'y' or confirm == '':
         output = ask_lisa(query)
-        speak(output)
-        break
+        give_answer(output)
+        memory.save_context({"input": query}, {"output": output})
+           
+
