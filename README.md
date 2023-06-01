@@ -1,4 +1,4 @@
-# README
+# Lisa, a personal AI assistant
 
 ## Introduction
 This script is a personal assistant named Lisa. It provides a conversational interface for users to interact with. Users can ask questions or give commands, and Lisa will respond accordingly. The script utilizes the Langchain library for natural language processing and conversation management.
