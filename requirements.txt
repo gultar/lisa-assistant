@@ -1,0 +1,6 @@
+speech_recognition
+langchain
+python-dotenv
+pyttsx3
+geocoder
+duckduckgo_search
