@@ -20,8 +20,6 @@ pip install -r requirements.txt
 1. Clone the repository and navigate to the project directory.
 2. Create a `.env` file in the project directory and set the following environment variables:
    - `OPENAI_API_KEY`: Your OpenAI API key obtained from the OpenAI website.
-   - `GOOGLE_CSE_ID`: Your Google Custom Search Engine ID.
-   - `GOOGLE_API_KEY`: Your Google API key.
 3. Run the assistant using the command:
    ```
    python assistant.py

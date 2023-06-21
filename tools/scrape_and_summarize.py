@@ -2,7 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import textwrap
 from dotenv import dotenv_values, load_dotenv
-from langchain.chat_models import ChatOpenAI
 from langchain.llms import OpenAI
 from langchain import PromptTemplate, LLMChain
 
@@ -40,7 +39,6 @@ def scrape_and_summarize(url):
 
 def chatgpt_summarize(text):
     # Your code to send the text to ChatGPT for summarization
-    # Replace this with your implementation or API call
     env = dotenv_values(".env")
 
     # Creating an instance of the ChatOpenAI class
