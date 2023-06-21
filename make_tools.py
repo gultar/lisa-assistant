@@ -58,16 +58,17 @@ def make_tools():
             description="Useful for when you need to research a topic in depth. This tool only takes a url as argument.",
             func=scrape_and_summarize
         ),
-        # Tool(
-        #     name="Application Builder",
-        #     func=build_application,
-        #     description="""
-        #     A tool that enables the AI Assistant to build applications based on very
-        #     specific, and detailled instructions to be passed to an AI model.
-        #     Describe the application to be created in rich detail, and 
-        #     you must specify exclusions, and custom details.
-        #     """
-        # )
+        Tool(
+            name="Application Builder",
+            func=build_application,
+            description="""
+            Useful for when you need to create an application or a script.
+            A tool that enables the AI Assistant to build applications based on very
+            specific, and detailled instructions to be passed to an AI model.
+            Describe the application to be created in rich detail, and 
+            you must specify exclusions, and custom details.
+            """
+        )
 
     ]
     return tools

@@ -46,8 +46,6 @@ def build_application(specs: str):
     # Creating a conversation summary memory buffer which will enable to have longer context by summarizing earlier prompts
     memory = ConversationBufferWindowMemory(return_messages=True, k=7)
 
-    # os.environ["GOOGLE_API_KEY"] = "AIzaSyB2BEijaDW9yDGNw5afqYnajIkFSrxZHGE"
-    # os.environ["GOOGLE_CSE_ID"] = "9020f0b284b364205"
 
     # Creating a conversation chain with the prompt, language model, and memory
     conversation = ConversationChain(memory=memory, prompt=prompt, llm=llm)
